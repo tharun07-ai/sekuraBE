@@ -12,7 +12,7 @@ import auth from "./middleware/auth.js";
 
 import connectDB from './config/db.js';
 
-import User from '../user.js';
+import User from './user.js';
 import authRouter from "./routes/auth.js";
 import {
     clearEmailVerification,
@@ -35,13 +35,35 @@ connectDB();
 
 const app = express();
 
-const corsOrigins = process.env.CLIENT_ORIGIN
-    ? process.env.CLIENT_ORIGIN.split(",").map((origin) => origin.trim())
-    : true;
+const defaultClientOrigins = [
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "https://sekura-fe-m63z.vercel.app"
+];
 
-app.use(cors({
-    origin: corsOrigins
-}));
+const normalizeOrigin = (origin) => origin?.trim().replace(/\/+$/, "");
+
+const allowedOrigins = [
+    ...defaultClientOrigins,
+    ...(process.env.CLIENT_ORIGIN
+        ? process.env.CLIENT_ORIGIN.split(",").map(normalizeOrigin)
+        : [])
+].filter(Boolean);
+
+const corsOptions = {
+    origin(origin, callback) {
+        if (!origin || allowedOrigins.includes(normalizeOrigin(origin))) {
+            return callback(null, true);
+        }
+
+        return callback(new Error("Not allowed by CORS"));
+    },
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"]
+};
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 
 app.use(express.json({
     limit: "2mb"

@@ -1,6 +1,6 @@
 import bcrypt from "bcrypt";
 
-import User from "../../user.js";
+import User from "../user.js";
 import { sendOtpEmail } from "../services/brevoService.js";
 import generateOTP from "../utils/generateOTP.js";
 import { generateToken } from "../utils/token.js";
