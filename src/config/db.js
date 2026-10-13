@@ -2,6 +2,20 @@ import mongoose from 'mongoose';
 
 mongoose.set("bufferCommands", false);
 
+export function isDatabaseConnected() {
+    return mongoose.connection.readyState === 1;
+}
+
+export function requireDatabaseConnection(req, res, next) {
+    if (!isDatabaseConnected()) {
+        return res.status(503).json({
+            message: "Database connection unavailable. Check MongoDB Atlas network access and credentials."
+        });
+    }
+
+    return next();
+}
+
 const connectDB = async () => {
 
     try {

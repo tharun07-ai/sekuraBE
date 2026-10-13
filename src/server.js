@@ -4,13 +4,15 @@ import cors from 'cors';
 import argon2 from 'argon2';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import mongoose from 'mongoose';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 import auth from "./middleware/auth.js";
 
-import connectDB from './config/db.js';
+import connectDB, {
+    isDatabaseConnected,
+    requireDatabaseConnection
+} from './config/db.js';
 
 import User from './user.js';
 import authRouter from "./routes/auth.js";
@@ -68,20 +70,6 @@ app.options("*", cors(corsOptions));
 app.use(express.json({
     limit: "2mb"
 }));
-
-function isDatabaseConnected() {
-    return mongoose.connection.readyState === 1;
-}
-
-function requireDatabaseConnection(req, res, next) {
-    if (!isDatabaseConnected()) {
-        return res.status(503).json({
-            message: "Database connection unavailable. Check MongoDB Atlas network access and credentials."
-        });
-    }
-
-    return next();
-}
 
 // ======================================
 // API ROUTES
@@ -154,15 +142,38 @@ app.post("/newUser", async (req, res) => {
         const normalizedEmail = normalizeEmail(Email);
 
         // =========================
-        // EMAIL VERIFIED?
+        // EMAIL FORMAT VALIDATION
         // =========================
 
-        if (!isEmailRecentlyVerified(normalizedEmail)) {
+        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-            return res.status(401).json({
+        if (!normalizedEmail || !emailPattern.test(normalizedEmail)) {
+
+            return res.status(400).json({
 
                 message:
-                    "Email not verified"
+                    "Valid email is required"
+
+            });
+
+        }
+
+        // =========================
+        // DUPLICATE EMAIL CHECK
+        // =========================
+
+        const existingUser = await User.findOne({
+
+            email: normalizedEmail
+
+        });
+
+        if (existingUser) {
+
+            return res.status(400).json({
+
+                message:
+                    "Email already registered"
 
             });
 
@@ -244,12 +255,6 @@ app.post("/newUser", async (req, res) => {
         await user.save();
 
         // =========================
-        // REMOVE EMAIL VERIFICATION
-        // =========================
-
-        clearEmailVerification(normalizedEmail);
-
-        // =========================
         // GENERATE JWT
         // =========================
 
@@ -290,6 +295,17 @@ app.post("/newUser", async (req, res) => {
     }
 
     catch (error) {
+
+        if (error?.code === 11000) {
+
+            return res.status(400).json({
+
+                message:
+                    "Email already registered"
+
+            });
+
+        }
 
         console.log(error);
 

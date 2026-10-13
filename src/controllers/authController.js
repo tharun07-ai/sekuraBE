@@ -1,5 +1,6 @@
 import bcrypt from "bcrypt";
 
+import { isDatabaseConnected } from "../config/db.js";
 import User from "../user.js";
 import { sendOtpEmail } from "../services/brevoService.js";
 import generateOTP from "../utils/generateOTP.js";
@@ -136,6 +137,12 @@ export const verifyOtp = async (req, res) => {
         if (!isValidOtp(otp)) {
             return res.status(400).json({
                 message: "Valid 6 digit OTP is required"
+            });
+        }
+
+        if (!isDatabaseConnected()) {
+            return res.status(503).json({
+                message: "Database connection unavailable. Check MongoDB Atlas network access and credentials."
             });
         }
 
